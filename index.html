@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Америка и Беларусь: время</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0; padding: 24px; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .sub { color: #94a3b8; margin-bottom: 20px; }
+  .home { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+  .home .t { font-size: 2rem; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .list { display: grid; gap: 10px; }
+  .row { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 14px 18px; display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center; }
+  .city { font-weight: 600; }
+  .zone { color: #94a3b8; font-size: .85rem; }
+  .time { font-size: 1.4rem; font-variant-numeric: tabular-nums; text-align: right; }
+  .day { color: #94a3b8; font-size: .8rem; text-align: right; }
+  .diff { background: #0ea5e9; color: #04202e; font-weight: 700; padding: 6px 12px; border-radius: 999px; font-size: .9rem; white-space: nowrap; }
+  html { -webkit-text-size-adjust: 100%; }
+  @media (max-width: 520px) {
+    body { padding: 14px; }
+    h1 { font-size: 1.25rem; }
+    .home { padding: 12px 14px; gap: 10px; }
+    .home .t { font-size: 1.6rem; }
+    .row { grid-template-columns: 1fr auto; padding: 12px 14px; gap: 8px 12px; }
+    .time { font-size: 1.25rem; }
+    .diff { grid-column: 1 / -1; justify-self: start; font-size: .85rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Время в Америке и в Беларуси</h1>
+  <div class="sub">Разница считается автоматически с учётом летнего времени</div>
+  <div class="home">
+    <div><div class="city">Минск, Беларусь</div><div class="zone">Europe/Minsk (UTC+3)</div></div>
+    <div><div class="t" id="minsk"></div><div class="day" id="minskDay"></div></div>
+  </div>
+  <div class="list" id="list"></div>
+</main>
+<script>
+const MINSK = "Europe/Minsk";
+const ZONES = [
+  ["Нью-Йорк", "America/New_York", "Восточное (ET)"],
+  ["Торонто", "America/Toronto", "Восточное (ET)"],
+  ["Чикаго", "America/Chicago", "Центральное (CT)"],
+  ["Мехико", "America/Mexico_City", "Центральное (CST)"],
+  ["Денвер", "America/Denver", "Горное (MT)"],
+  ["Финикс", "America/Phoenix", "Горное, без DST (MST)"],
+  ["Лос-Анджелес", "America/Los_Angeles", "Тихоокеанское (PT)"],
+  ["Анкоридж", "America/Anchorage", "Аляска (AKT)"],
+  ["Гонолулу", "Pacific/Honolulu", "Гавайи (HST)"],
+  ["Богота", "America/Bogota", "Колумбия (COT)"],
+  ["Сан-Паулу", "America/Sao_Paulo", "Бразилия (BRT)"],
+  ["Буэнос-Айрес", "America/Argentina/Buenos_Aires", "Аргентина (ART)"],
+];
+
+function offsetMin(tz, d) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone: tz, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric",
+    hour: "numeric", minute: "numeric", second: "numeric"
+  }).formatToParts(d).map(x => [x.type, x.value]));
+  const asUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return Math.round((asUTC - Math.floor(d / 1000) * 1000) / 60000);
+}
+const fmt = (tz, d) => d.toLocaleTimeString("ru-RU", { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const dayStr = (tz, d) => d.toLocaleDateString("ru-RU", { timeZone: tz, weekday: "short", day: "numeric", month: "short" });
+function utcLabel(m) { const s = m < 0 ? "−" : "+"; m = Math.abs(m); return "UTC" + s + Math.floor(m / 60) + (m % 60 ? ":" + String(m % 60).padStart(2, "0") : ""); }
+function diffLabel(h) {
+  const a = Math.abs(h), hh = Math.floor(a), mm = Math.round((a - hh) * 60);
+  const txt = hh + " ч" + (mm ? " " + mm + " мин" : "");
+  return h === 0 ? "Одинаковое время" : `Беларусь ${h > 0 ? "впереди" : "позади"} на ${txt}`;
+}
+
+const list = document.getElementById("list");
+list.innerHTML = ZONES.map((z, i) => `<div class="row">
+  <div><div class="city">${z[0]}</div><div class="zone">${z[2]} · <span id="u${i}"></span></div></div>
+  <div><div class="time" id="t${i}"></div><div class="day" id="d${i}"></div></div>
+  <div class="diff" id="f${i}"></div></div>`).join("");
+
+function tick() {
+  const now = new Date();
+  const mo = offsetMin(MINSK, now);
+  document.getElementById("minsk").textContent = fmt(MINSK, now);
+  document.getElementById("minskDay").textContent = dayStr(MINSK, now);
+  ZONES.forEach((z, i) => {
+    const o = offsetMin(z[1], now);
+    document.getElementById("t" + i).textContent = fmt(z[1], now);
+    document.getElementById("d" + i).textContent = dayStr(z[1], now);
+    document.getElementById("u" + i).textContent = utcLabel(o);
+    document.getElementById("f" + i).textContent = diffLabel((mo - o) / 60);
+  });
+}
+tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>
